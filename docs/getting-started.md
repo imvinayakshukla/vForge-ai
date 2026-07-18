@@ -8,11 +8,20 @@
 
 ## Install
 
-From the framework repository:
+VForge is a normal Python package — **agent projects depend on it; they never
+contain or modify framework code.** Pick the install source that fits:
 
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e .            # add ".[dev]" for tests, ".[rag]" for RAG
+
+# a) from PyPI (once published)
+pip install "vforge==0.1.0"
+
+# b) straight from git, pinned to a tag
+pip install "vforge @ git+https://github.com/you/vforge.git@v0.1.0"
+
+# c) from a local checkout (framework development)
+pip install -e /path/to/vforge            # add "[dev]" for tests, "[rag]", "[otel]" for extras
 ```
 
 Check your environment:
@@ -20,6 +29,33 @@ Check your environment:
 ```bash
 vforge doctor
 ```
+
+### How an agent project depends on VForge
+
+Your agent app is just config + prompts + a dependency pin — its own
+`pyproject.toml` (or `requirements.txt`) declares the framework version:
+
+```toml
+# my-agent/pyproject.toml
+[project]
+name = "my-agent"
+version = "1.0.0"
+dependencies = [
+    "vforge==0.1.0",        # pin; bump deliberately when upgrading
+]
+```
+
+```
+my-agent/
+├── pyproject.toml          # depends on vforge
+├── application.yaml
+├── prompts/
+└── skills/
+```
+
+`pip install .` pulls the framework, and `vforge start` runs your app.
+Upgrading the framework later = changing the version pin and re-testing —
+your `application.yaml`, prompts and skills are untouched.
 
 ## Create your first agent
 

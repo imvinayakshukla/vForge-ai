@@ -47,7 +47,7 @@
 <main id="panels"></main>
 
 <script>
-const TABS = ["Chat","Agents","Tools","Prompts","Sessions","Logs","Metrics","Health","Config"];
+const TABS = ["Chat","Agents","Tools","Prompts","Skills","Sessions","Logs","Metrics","Health","Config"];
 const tabsEl = document.getElementById("tabs");
 const panelsEl = document.getElementById("panels");
 const panels = {};
@@ -142,6 +142,13 @@ async function loadPanel(name) {
       case "Prompts": {
         const prompts = await api("/api/prompts");
         el.innerHTML = prompts.map(p => `<div class="card"><h3>${esc(p.agent)}</h3><pre>${esc(p.system_prompt)}</pre></div>`).join("");
+        break;
+      }
+      case "Skills": {
+        const skills = await api("/api/skills");
+        el.innerHTML = skills.length ? skills.map(s => `<div class="card"><h3>${esc(s.name)}</h3>
+          <p class="muted">used by: ${s.agents.map(esc).join(", ")}</p><pre>${esc(s.content)}</pre></div>`).join("")
+          : `<p class="muted">No skills configured.</p>`;
         break;
       }
       case "Sessions": {

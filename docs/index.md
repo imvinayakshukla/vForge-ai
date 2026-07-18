@@ -16,6 +16,7 @@ memory, observability, auth, a web console and a CLI.
 | [Extending VForge](extending.md) | Custom LLM providers, memory backends and tools |
 | [Deployment Guide](deployment.md) | Docker, environment variables, auth, running a fleet of agents |
 | [Architecture](architecture.md) | Layers, design principles, startup sequence, the agent loop |
+| [Angular Console](../webui/angular/README.md) | The bundled Angular UI: develop, build, override via `server.ui_dir` |
 | [Contributing](../CONTRIBUTING.md) | Working on the framework itself |
 
 ## The 30-second mental model

@@ -89,12 +89,16 @@ Errors use JSON-RPC error objects (HTTP status stays 200):
 | `POST /api/chat` | Run one turn. Body: `{agent?, message, session_id?}` → `{agent, session_id, answer}` |
 | `GET /api/tools` | Every bound tool with its JSON schema, per agent |
 | `GET /api/prompts` | Effective system prompts (skills included), per agent |
+| `GET /api/skills` | Loaded skills: `[{name, agents, content}]` |
 | `GET /api/sessions` | `[{agent, session_id, messages}]` |
 | `GET /api/sessions/{agent}/{session_id}` | Full message history for one session |
 | `GET /api/logs` | Recent log lines (ring buffer, max 500) |
 | `GET /api/metrics` | `{counters: {...}, timers: {name: {count, avg_ms, max_ms}}}` |
 | `GET /api/config` | Effective configuration, secrets redacted (`api_key` → `***`) |
-| `GET /` | The developer console (HTML) |
+| `GET /` | The developer console — built-in HTML, or your own static build when `server.ui_dir` is set (see the [Angular console](../webui/angular/README.md)) |
+
+The console API is a stable contract: any custom UI (Angular, React, …) can be
+served via `server.ui_dir` and consume exactly these endpoints.
 
 ---
 

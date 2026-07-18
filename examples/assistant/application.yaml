@@ -33,6 +33,15 @@ agents:
 server:
   host: 0.0.0.0
   port: 8000
+  # Serve the Angular console instead of the built-in one:
+  # 1) cd ../../webui/angular && npm install && npm run build
+  # 2) uncomment:
+  # ui_dir: ../../webui/angular/dist/vforge-console/browser
 
 observability:
   log_level: INFO
+  # OpenTelemetry tracing (requires: pip install "vforge[otel]"):
+  # otel:
+  #   enabled: true
+  #   endpoint: http://localhost:4318   # OTLP/HTTP collector (Jaeger, Tempo, ...)
+  #   console_export: false

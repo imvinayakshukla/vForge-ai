@@ -83,6 +83,10 @@ class AgentConfig(StrictModel):
 class ServerConfig(StrictModel):
     host: str = "0.0.0.0"
     port: int = Field(default=8000, ge=1, le=65535)
+    ui_dir: str | None = None
+    """Path (relative to the app dir) of a static UI build (e.g. an Angular
+    ``dist/``) served at ``/`` instead of the built-in console. The console
+    API under ``/api`` stays available either way."""
 
 
 class AuthConfig(StrictModel):
@@ -97,9 +101,19 @@ class PeerConfig(StrictModel):
     api_key: str | None = None
 
 
+class OTelConfig(StrictModel):
+    """OpenTelemetry tracing. Requires the ``vforge[otel]`` extra when enabled."""
+
+    enabled: bool = False
+    endpoint: str | None = None  # OTLP/HTTP endpoint, e.g. http://localhost:4318
+    service_name: str | None = None  # defaults to app.name
+    console_export: bool = False  # additionally print spans to stdout (debugging)
+
+
 class ObservabilityConfig(StrictModel):
     log_level: str = "INFO"
     json_logs: bool = False
+    otel: OTelConfig = Field(default_factory=OTelConfig)
 
 
 class RAGConfig(StrictModel):

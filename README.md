@@ -39,8 +39,8 @@ vforge start                   # console at http://localhost:8000
 | **Skills** | `skills/<name>/SKILL.md` appended to system prompts |
 | **Auth** | Optional API key on `/a2a` and `/api` (`X-API-Key` or bearer) |
 | **RAG (optional)** | ChromaDB indexing + `search_knowledge` tool; the framework runs fully without it (`pip install "vforge[rag]"`) |
-| **Observability** | Structured logs (text/JSON), correlation IDs, in-process metrics, `/api/logs`, `/api/metrics` |
-| **Web console** | Chat, agents, tools, prompts, sessions, logs, metrics, health, config — auto-discovers agents |
+| **Observability** | Structured logs (text/JSON), correlation IDs, in-process metrics, optional OpenTelemetry tracing (`pip install "vforge[otel]"`) with nested spans per turn |
+| **Web console** | Chat, agents, tools, prompts, skills, sessions, logs, metrics, health, config — auto-discovers agents. Replaceable: point `server.ui_dir` at any static build; an [Angular console](webui/angular/README.md) is included |
 | **CLI** | `start`, `validate`, `scaffold`, `list-tools`, `doctor`, `version` |
 
 ## application.yaml at a glance
@@ -117,6 +117,7 @@ Full documentation lives in [docs/](docs/index.md):
 - [API Reference](docs/api-reference.md) — HTTP endpoints (A2A + console) and the Python API
 - [Extending VForge](docs/extending.md) — custom LLM providers, memory backends, tools
 - [Deployment Guide](docs/deployment.md) — Docker, compose fleets, Kubernetes notes
+- [Angular Console](webui/angular/README.md) — the bundled Angular UI and how to override it
 - [Architecture](docs/architecture.md) — layers, startup sequence, the agent loop
 - [Contributing](CONTRIBUTING.md) — working on the framework itself
 

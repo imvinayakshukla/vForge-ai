@@ -21,8 +21,10 @@ from vforge.config.loader import load_config
 from vforge.config.models import VForgeConfig
 from vforge.mcp.manager import MCPManager
 from vforge.observability.logging import setup_logging
+from vforge.observability.tracing import setup_tracing, shutdown_tracing
 from vforge.orchestration.router import Orchestrator
 from vforge.runtime.context import RuntimeContext
+from vforge.skills.loader import SKILL_FILENAME, SKILLS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ class VForgeApp:
         """Run the startup sequence and return the runtime context."""
         config = config or load_config(self.app_dir)
         setup_logging(config.observability.log_level, config.observability.json_logs)
+        setup_tracing(config.observability.otel, config.app.name)
         logger.info("Starting VForge app '%s'", config.app.name)
 
         mcp = MCPManager(config.mcp_servers)
@@ -65,10 +68,30 @@ class VForgeApp:
                 agent.tools[binding.definition.name] = binding
 
         self.ctx = RuntimeContext(
-            config=config, app_dir=self.app_dir, mcp=mcp, agents=agents, orchestrator=orchestrator
+            config=config,
+            app_dir=self.app_dir,
+            mcp=mcp,
+            agents=agents,
+            orchestrator=orchestrator,
+            skills=self._collect_skills(config),
         )
         logger.info("VForge app '%s' ready", config.app.name)
         return self.ctx
+
+    def _collect_skills(self, config: VForgeConfig) -> dict[str, dict]:
+        """Index loaded skills for the console's Skill Viewer."""
+        skills: dict[str, dict] = {}
+        for agent_cfg in config.agents:
+            for name in agent_cfg.skills:
+                entry = skills.get(name)
+                if entry is None:
+                    path = self.app_dir / SKILLS_DIR / name / SKILL_FILENAME
+                    entry = skills[name] = {
+                        "content": path.read_text(encoding="utf-8").strip(),
+                        "agents": [],
+                    }
+                entry["agents"].append(agent_cfg.name)
+        return skills
 
     async def shutdown(self) -> None:
         """Release providers, memory backends and MCP connections."""
@@ -83,6 +106,7 @@ class VForgeApp:
         if self._factory:
             await self._factory.aclose()
         await self.ctx.mcp.aclose()
+        shutdown_tracing()
         self.ctx = None
 
 

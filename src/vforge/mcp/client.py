@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 from vforge.config.models import MCPServerConfig
+from vforge.observability.tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -280,9 +281,13 @@ class MCPClient:
                         if self._transport is None:
                             await self.connect()
                 assert self._transport is not None
-                result = await self._transport.request(
-                    "tools/call", {"name": name, "arguments": arguments}
-                )
+                with span(
+                    "mcp.call_tool",
+                    **{"mcp.server": self.name, "mcp.tool": name, "retry.attempt": attempt},
+                ):
+                    result = await self._transport.request(
+                        "tools/call", {"name": name, "arguments": arguments}
+                    )
                 return _render_tool_result(result)
             except MCPError as exc:
                 last_error = exc

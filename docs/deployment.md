@@ -16,6 +16,13 @@ environment is the single secret store. Typical set:
 Never commit real keys; keep an `.env.example` in the repo and inject real
 values at deploy time (container env, secret manager).
 
+## Pin the framework version
+
+Agent projects should depend on an exact framework version
+(`vforge==X.Y.Z` in their `pyproject.toml`/`requirements.txt`) and bump it
+deliberately — never track a moving branch in production. See
+[Getting Started](getting-started.md) for the dependency layout.
+
 ## Production checklist
 
 - **Enable auth**: set `auth.api_key: ${VFORGE_API_KEY}` — otherwise anyone
@@ -28,6 +35,11 @@ values at deploy time (container env, secret manager).
   for cost control.
 - **Pin versions**: install the framework from a locked requirements file or
   image digest.
+- **Tracing**: enable `observability.otel` with your collector's OTLP/HTTP
+  endpoint (`pip install "vforge[otel]"`); spans cover HTTP → agent → LLM →
+  tool per turn.
+- **Custom UI**: build your UI (e.g. `webui/angular`) in CI and ship the
+  static output with the app; set `server.ui_dir` to the build directory.
 
 ## Docker
 

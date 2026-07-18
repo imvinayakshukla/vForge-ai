@@ -1,0 +1,5 @@
+{
+  "/api": { "target": "http://localhost:8000", "secure": false },
+  "/health": { "target": "http://localhost:8000", "secure": false },
+  "/a2a": { "target": "http://localhost:8000", "secure": false }
+}

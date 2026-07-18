@@ -205,6 +205,9 @@ Clients send `X-API-Key: <key>` or `Authorization: Bearer <key>`.
 observability:
   log_level: INFO
   json_logs: true        # structured JSON lines for log shippers
+  otel:
+    enabled: true        # requires: pip install "vforge[otel]"
+    endpoint: http://localhost:4318   # OTLP/HTTP collector (Jaeger, Tempo, ...)
 ```
 
 - Every HTTP request gets a correlation ID (honours incoming
@@ -212,8 +215,44 @@ observability:
 - `GET /api/metrics` exposes counters and timings per agent and tool
   (`agent.<name>.requests`, `agent.<name>.llm_calls`, `tool.<name>.duration`, …).
 - `GET /api/logs` returns the recent log ring buffer (also in the console).
+- With **OpenTelemetry enabled**, each conversation turn produces a nested
+  span tree — `http.request → agent.run → llm.complete / tool.execute /
+  mcp.call_tool` — exported over OTLP/HTTP. Disabled (the default), tracing
+  is a zero-cost no-op and the OTel packages are never imported. Quick local
+  setup: `docker run --rm -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one`,
+  then browse traces at http://localhost:16686.
 
-## 11. Development workflow
+## 11. Custom web UI (Angular included)
+
+The built-in console is a single self-contained page. For a richer or branded
+UI, point `server.ui_dir` at any static build and it replaces the console at
+`/` — the console API (`/api/*`, `/health`) is a stable contract both UIs
+consume, and `/a2a` is untouched:
+
+```yaml
+server:
+  ui_dir: ui-dist          # relative to the app dir; must contain index.html
+```
+
+The framework ships a full **Angular console** in
+[`webui/angular`](../webui/angular/README.md) with the same tabs as the
+built-in one (Chat, Agents, Tools, Prompts, Skills, Sessions, Logs, Metrics,
+Health, Config):
+
+```bash
+cd webui/angular
+npm install
+npm start                # dev server on :4200, proxying /api to :8000
+npm run build            # → dist/vforge-console/browser  (use as ui_dir)
+```
+
+To customise, fork the workspace into your agent repo and edit the
+components — `src/app/api.service.ts` is the only file that talks to the
+backend. Any other framework (React, Vue, plain HTML) works the same way:
+build statically, set `ui_dir`. With `auth.api_key` enabled, UI assets stay
+public; only `/api` and `/a2a` require the key.
+
+## 12. Development workflow
 
 ```bash
 vforge validate      # after every config/prompt edit

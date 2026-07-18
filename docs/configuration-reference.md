@@ -78,10 +78,11 @@ rag:            # optional retrieval
 
 ## `server`
 
-| Key | Type | Default |
-|---|---|---|
-| `host` | str | `0.0.0.0` |
-| `port` | int | `8000` |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `host` | str | `0.0.0.0` | |
+| `port` | int | `8000` | |
+| `ui_dir` | path | — | Static UI build (e.g. an Angular `dist/.../browser`) served at `/` **instead of** the built-in console. Relative to the app dir; must contain `index.html` (checked at startup). `/a2a`, `/health` and `/api/*` always take precedence. See [webui/angular](../webui/angular/README.md). |
 
 ## `auth`
 
@@ -106,6 +107,15 @@ with local agent names.
 |---|---|---|---|
 | `log_level` | str | `INFO` | Standard Python log levels |
 | `json_logs` | bool | `false` | Emit JSON lines instead of text |
+| `otel.enabled` | bool | `false` | OpenTelemetry tracing. Requires `pip install "vforge[otel]"` (startup fails fast otherwise) |
+| `otel.endpoint` | str | — | OTLP/HTTP collector base URL (e.g. `http://localhost:4318`); `/v1/traces` is appended |
+| `otel.service_name` | str | `app.name` | `service.name` resource attribute |
+| `otel.console_export` | bool | `false` | Also print spans to stdout (debugging) |
+
+When tracing is enabled, VForge emits spans for every HTTP request
+(`http.request`), agent turn (`agent.run`), model call (`llm.complete`) and
+tool execution (`tool.execute`, `mcp.call_tool`), correctly nested per
+conversation turn.
 
 ## `rag`
 

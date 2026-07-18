@@ -20,6 +20,8 @@ class RuntimeContext:
     mcp: MCPManager
     agents: dict[str, Agent] = field(default_factory=dict)
     orchestrator: Orchestrator | None = None
+    skills: dict[str, dict] = field(default_factory=dict)
+    """Loaded skills: name -> {"content": str, "agents": [agent names]}."""
 
     @property
     def default_agent(self) -> Agent:

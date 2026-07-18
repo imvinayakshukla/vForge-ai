@@ -18,7 +18,7 @@
 | Layer | Package | Responsibility |
 |---|---|---|
 | CLI | `vforge.cli` | `start`, `validate`, `scaffold`, `list-tools`, `doctor`, `version` |
-| Web console | `vforge.web` + `/api/*` routes | Developer UI: chat, agents, tools, prompts, sessions, logs, metrics, config |
+| Web console | `vforge.web` + `/api/*` routes | Developer UI: chat, agents, tools, prompts, skills, sessions, logs, metrics, config. Replaceable via `server.ui_dir` (Angular app in `webui/angular`) |
 | Runtime | `vforge.runtime` | Lifecycle (bootstrap/shutdown), runtime context, serving |
 | Orchestration | `vforge.orchestration` | `call_next_agent`: local dispatch + A2A peer calls |
 | Agents | `vforge.agents` | Generic tool-use loop; factory that wires everything from config |
@@ -27,7 +27,7 @@
 | Skills | `vforge.skills` | `SKILL.md` loading and prompt composition |
 | RAG | `vforge.rag` | Optional Chroma-backed retrieval tool |
 | Auth | `vforge.auth` | API-key middleware |
-| Observability | `vforge.observability` | Logging, correlation IDs, metrics |
+| Observability | `vforge.observability` | Logging, correlation IDs, metrics, optional OpenTelemetry tracing (`span()` is a no-op unless `otel.enabled`) |
 | Transport | `vforge.transport` | FastAPI app: A2A endpoints + console API |
 | Configuration | `vforge.config` | YAML parsing, env interpolation, Pydantic validation |
 
@@ -35,10 +35,19 @@ Dependencies point downward only; there are no cycles. Adapters register
 themselves in registries (`register_provider`, `register_memory`) so new
 backends require zero framework changes.
 
+## Distribution model
+
+VForge is consumed **as a versioned library**. An agent project declares
+`vforge==X.Y.Z` in its own `pyproject.toml`, supplies `application.yaml` +
+`prompts/` + `skills/`, and runs `vforge start`. Framework upgrades are a
+dependency-pin bump; agent projects contain no framework code. See
+[Getting Started](getting-started.md) → *How an agent project depends on
+VForge*.
+
 ## Startup sequence (`VForgeApp.bootstrap`)
 
 1. `load_config()` — parse YAML, resolve `${VARS}`, validate, check prompt files
-2. `setup_logging()` — text or JSON, correlation-ID aware
+2. `setup_logging()` + `setup_tracing()` — logs, correlation IDs, optional OTel
 3. `MCPManager.connect_all()` — handshake + `tools/list` on every server (fail fast)
 4. `AgentFactory.build_all()` — per agent: prompt file → + skills → LLM provider
    (global or override) → memory → MCP tool bindings
@@ -80,4 +89,5 @@ fleet of VForge apps composes without custom glue.
 | Memory backend | `@register_memory("x")` on a `MemoryProvider` subclass |
 | Tools | Any MCP server (stdio or HTTP) |
 | Auth scheme | Additional middleware alongside `ApiKeyMiddleware` |
-| Metrics export | Wrap `vforge.observability.metrics` with an OTel exporter |
+| Web UI | Any static build via `server.ui_dir` (Angular reference app in `webui/angular`) |
+| Tracing backend | Any OTLP/HTTP collector via `observability.otel.endpoint` |

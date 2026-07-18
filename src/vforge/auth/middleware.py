@@ -16,16 +16,19 @@ from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_PATHS = {"/", "/health", "/.well-known/agent.json"}
+PROTECTED_PREFIXES = ("/a2a", "/api")
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """Requires the key on protected prefixes; UI assets, health and the
+    agent card remain public."""
+
     def __init__(self, app, api_key: str) -> None:
         super().__init__(app)
         self._api_key = api_key
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in PUBLIC_PATHS:
+        if not request.url.path.startswith(PROTECTED_PREFIXES):
             return await call_next(request)
 
         provided = request.headers.get("x-api-key")

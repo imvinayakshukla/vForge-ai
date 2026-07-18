@@ -18,6 +18,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from vforge import __version__
@@ -28,6 +29,7 @@ from vforge.observability.logging import (
     set_correlation_id,
 )
 from vforge.observability.metrics import metrics
+from vforge.observability.tracing import span
 from vforge.runtime.context import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,15 @@ def create_app(ctx: RuntimeContext) -> FastAPI:
         cid = request.headers.get("x-correlation-id") or new_correlation_id()
         token = set_correlation_id(cid)
         try:
-            response = await call_next(request)
+            with span(
+                "http.request",
+                **{
+                    "http.method": request.method,
+                    "http.path": request.url.path,
+                    "correlation.id": cid,
+                },
+            ):
+                response = await call_next(request)
         finally:
             set_correlation_id(None)  # reset for safety; token scope ends with request
             del token
@@ -140,10 +150,19 @@ def create_app(ctx: RuntimeContext) -> FastAPI:
         }
 
     # ---------------------------------------------------------------- console
+    #
+    # UI resolution: when `server.ui_dir` is configured, that static build
+    # (e.g. an Angular dist/) is served at "/" instead of the built-in
+    # console. It is mounted after all routes, so /a2a, /health and /api/*
+    # always take precedence. The console API stays available either way,
+    # so custom UIs consume the same endpoints the built-in console does.
 
-    @app.get("/", response_class=HTMLResponse)
-    async def console():
-        return _CONSOLE_HTML.read_text(encoding="utf-8")
+    custom_ui = _resolve_ui_dir(ctx)
+    if custom_ui is None:
+
+        @app.get("/", response_class=HTMLResponse)
+        async def console():
+            return _CONSOLE_HTML.read_text(encoding="utf-8")
 
     @app.get("/api/agents")
     async def api_agents():
@@ -190,6 +209,13 @@ def create_app(ctx: RuntimeContext) -> FastAPI:
             for agent in ctx.agents.values()
         ]
 
+    @app.get("/api/skills")
+    async def api_skills():
+        return [
+            {"name": name, "agents": info["agents"], "content": info["content"]}
+            for name, info in sorted(ctx.skills.items())
+        ]
+
     @app.get("/api/sessions")
     async def api_sessions():
         result = []
@@ -223,7 +249,27 @@ def create_app(ctx: RuntimeContext) -> FastAPI:
         _redact_secrets(redacted)
         return redacted
 
+    if custom_ui is not None:
+        app.mount("/", StaticFiles(directory=custom_ui, html=True), name="custom-ui")
+        logger.info("Serving custom UI from %s", custom_ui)
+
     return app
+
+
+def _resolve_ui_dir(ctx: RuntimeContext) -> Path | None:
+    """Resolve and validate ``server.ui_dir``; fail fast on a broken build."""
+    ui_dir = ctx.config.server.ui_dir
+    if not ui_dir:
+        return None
+    path = (ctx.app_dir / ui_dir).resolve()
+    if not path.is_dir():
+        raise RuntimeError(f"server.ui_dir does not exist: {path}")
+    if not (path / "index.html").is_file():
+        raise RuntimeError(
+            f"server.ui_dir has no index.html: {path} — point it at the UI build output "
+            f"(e.g. webui/angular's dist/vforge-console/browser)"
+        )
+    return path
 
 
 def _rpc_error(rpc_id, code: int, message: str) -> JSONResponse:

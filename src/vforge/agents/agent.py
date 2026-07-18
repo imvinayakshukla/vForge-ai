@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from vforge.observability.metrics import metrics
+from vforge.observability.tracing import span
 from vforge.providers.llm.base import LLMProvider, Message, ToolCall, ToolDef
 from vforge.providers.memory.base import MemoryProvider
 
@@ -54,11 +55,13 @@ class Agent:
         await self.memory.append(session_id, Message(role="user", content=user_message))
         messages = await self.memory.history(session_id)
 
-        with metrics.timer(f"agent.{self.name}.duration"):
+        with span("agent.run", **{"agent.name": self.name, "session.id": session_id}), \
+                metrics.timer(f"agent.{self.name}.duration"):
             for iteration in range(self.max_iterations):
-                response = await self.provider.complete(
-                    self.system_prompt, messages, self.tool_defs or None
-                )
+                with span("llm.complete", **{"agent.name": self.name, "iteration": iteration}):
+                    response = await self.provider.complete(
+                        self.system_prompt, messages, self.tool_defs or None
+                    )
                 metrics.increment(f"agent.{self.name}.llm_calls")
 
                 assistant = Message(
@@ -91,7 +94,8 @@ class Agent:
             return f"ERROR: unknown tool '{call.name}'"
         metrics.increment(f"agent.{self.name}.tool_calls")
         try:
-            with metrics.timer(f"tool.{call.name}.duration"):
+            with span("tool.execute", **{"tool.name": call.name, "agent.name": self.name}), \
+                    metrics.timer(f"tool.{call.name}.duration"):
                 return await binding.executor(call.arguments)
         except Exception as exc:
             # Tool failures are surfaced to the model so it can adapt.
