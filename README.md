@@ -107,6 +107,19 @@ CLI ─ Web console
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
+## Documentation
+
+Full documentation lives in [docs/](docs/index.md):
+
+- [Getting Started](docs/getting-started.md) — first agent in five minutes
+- [Developer Guide](docs/developer-guide.md) — prompts, skills, MCP tools, multi-agent, memory, RAG, auth
+- [Configuration Reference](docs/configuration-reference.md) — every `application.yaml` key
+- [API Reference](docs/api-reference.md) — HTTP endpoints (A2A + console) and the Python API
+- [Extending VForge](docs/extending.md) — custom LLM providers, memory backends, tools
+- [Deployment Guide](docs/deployment.md) — Docker, compose fleets, Kubernetes notes
+- [Architecture](docs/architecture.md) — layers, startup sequence, the agent loop
+- [Contributing](CONTRIBUTING.md) — working on the framework itself
+
 ## Development
 
 ```bash
