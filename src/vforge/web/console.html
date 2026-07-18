@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VForge Console</title>
+<style>
+  :root { --bg:#0f1117; --panel:#181b23; --border:#2a2e3a; --text:#e6e8ee; --muted:#8b90a0; --accent:#6ea8fe; }
+  * { box-sizing:border-box; margin:0; }
+  body { font:14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--border); }
+  header h1 { font-size:16px; }
+  header .app { color:var(--muted); font-size:13px; }
+  nav { display:flex; gap:4px; padding:8px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  nav button { background:none; border:1px solid transparent; color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+  nav button.active { color:var(--text); border-color:var(--border); background:var(--panel); }
+  main { padding:16px 20px; max-width:1100px; margin:0 auto; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  pre, code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
+  pre { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; overflow-x:auto; white-space:pre-wrap; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px; }
+  .card h3 { font-size:14px; margin-bottom:6px; }
+  .muted { color:var(--muted); font-size:12px; }
+  /* chat */
+  #chat-log { display:flex; flex-direction:column; gap:8px; min-height:280px; max-height:55vh; overflow-y:auto; margin-bottom:12px; }
+  .msg { padding:10px 12px; border-radius:10px; max-width:80%; white-space:pre-wrap; }
+  .msg.user { align-self:flex-end; background:#243b62; }
+  .msg.agent { align-self:flex-start; background:var(--panel); border:1px solid var(--border); }
+  .msg.err { align-self:flex-start; background:#4a1f24; }
+  #chat-form { display:flex; gap:8px; }
+  select, input[type=text] { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:9px 12px; }
+  #chat-input { flex:1; }
+  button.primary { background:var(--accent); color:#0b1020; border:none; border-radius:8px; padding:9px 16px; cursor:pointer; font-weight:600; }
+  button.primary:disabled { opacity:.5; }
+  table { width:100%; border-collapse:collapse; }
+  td, th { text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚒️ VForge</h1>
+  <span class="app" id="app-name"></span>
+  <span class="muted" id="health" style="margin-left:auto"></span>
+</header>
+<nav id="tabs"></nav>
+<main id="panels"></main>
+
+<script>
+const TABS = ["Chat","Agents","Tools","Prompts","Sessions","Logs","Metrics","Health","Config"];
+const tabsEl = document.getElementById("tabs");
+const panelsEl = document.getElementById("panels");
+const panels = {};
+
+for (const name of TABS) {
+  const btn = document.createElement("button");
+  btn.textContent = name;
+  btn.onclick = () => activate(name);
+  tabsEl.appendChild(btn);
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.id = "panel-" + name;
+  panelsEl.appendChild(panel);
+  panels[name] = { btn, panel };
+}
+
+function activate(name) {
+  for (const [n, {btn, panel}] of Object.entries(panels)) {
+    btn.classList.toggle("active", n === name);
+    panel.classList.toggle("active", n === name);
+  }
+  if (name !== "Chat") loadPanel(name);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/* ---- Chat ---- */
+panels.Chat.panel.innerHTML = `
+  <div id="chat-log"></div>
+  <form id="chat-form">
+    <select id="chat-agent"></select>
+    <input type="text" id="chat-input" placeholder="Ask your agent..." autocomplete="off">
+    <button class="primary" id="chat-send">Send</button>
+  </form>
+  <p class="muted" style="margin-top:8px">Session: <code id="chat-session"></code></p>`;
+
+const sessionId = "console-" + Math.random().toString(36).slice(2, 10);
+document.getElementById("chat-session").textContent = sessionId;
+
+document.getElementById("chat-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("chat-input");
+  const send = document.getElementById("chat-send");
+  const text = input.value.trim();
+  if (!text) return;
+  appendMsg("user", text);
+  input.value = ""; send.disabled = true;
+  try {
+    const data = await api("/api/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({agent: document.getElementById("chat-agent").value, message: text, session_id: sessionId}),
+    });
+    appendMsg("agent", data.answer);
+  } catch (err) {
+    appendMsg("err", String(err));
+  } finally { send.disabled = false; input.focus(); }
+};
+
+function appendMsg(cls, text) {
+  const log = document.getElementById("chat-log");
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ---- Data panels ---- */
+async function loadPanel(name) {
+  const el = panels[name].panel;
+  try {
+    switch (name) {
+      case "Agents": {
+        const agents = await api("/api/agents");
+        el.innerHTML = agents.map(a => `<div class="card"><h3>${esc(a.name)}</h3>
+          <p class="muted">${esc(a.description) || "(no description)"}</p>
+          <p class="muted">tools: ${a.tools.map(esc).join(", ") || "(none)"} · max_iterations: ${a.max_iterations}</p></div>`).join("");
+        break;
+      }
+      case "Tools": {
+        const tools = await api("/api/tools");
+        el.innerHTML = tools.length ? tools.map(t => `<div class="card"><h3>${esc(t.name)} <span class="muted">(${esc(t.agent)})</span></h3>
+          <p class="muted">${esc(t.description)}</p><pre>${esc(JSON.stringify(t.input_schema, null, 2))}</pre></div>`).join("")
+          : `<p class="muted">No tools bound.</p>`;
+        break;
+      }
+      case "Prompts": {
+        const prompts = await api("/api/prompts");
+        el.innerHTML = prompts.map(p => `<div class="card"><h3>${esc(p.agent)}</h3><pre>${esc(p.system_prompt)}</pre></div>`).join("");
+        break;
+      }
+      case "Sessions": {
+        const sessions = await api("/api/sessions");
+        el.innerHTML = sessions.length
+          ? `<table><tr><th>Agent</th><th>Session</th><th>Messages</th></tr>` +
+            sessions.map(s => `<tr><td>${esc(s.agent)}</td><td><code>${esc(s.session_id)}</code></td><td>${s.messages}</td></tr>`).join("") + `</table>`
+          : `<p class="muted">No sessions yet.</p>`;
+        break;
+      }
+      case "Logs": {
+        const logs = await api("/api/logs");
+        el.innerHTML = `<pre>${esc(logs.join("\n")) || "(empty)"}</pre>`;
+        break;
+      }
+      case "Metrics": {
+        const m = await api("/api/metrics");
+        el.innerHTML = `<pre>${esc(JSON.stringify(m, null, 2))}</pre>`;
+        break;
+      }
+      case "Health": {
+        const h = await api("/health");
+        el.innerHTML = `<pre>${esc(JSON.stringify(h, null, 2))}</pre>`;
+        break;
+      }
+      case "Config": {
+        const c = await api("/api/config");
+        el.innerHTML = `<pre>${esc(JSON.stringify(c, null, 2))}</pre>`;
+        break;
+      }
+    }
+  } catch (err) {
+    el.innerHTML = `<pre>${esc(String(err))}</pre>`;
+  }
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+/* ---- boot ---- */
+(async () => {
+  try {
+    const health = await api("/health");
+    document.getElementById("app-name").textContent = health.app;
+    document.getElementById("health").textContent = "● " + health.status;
+    const agents = await api("/api/agents");
+    const select = document.getElementById("chat-agent");
+    for (const a of agents) {
+      const opt = document.createElement("option");
+      opt.value = a.name; opt.textContent = a.name;
+      select.appendChild(opt);
+    }
+  } catch (e) { console.error(e); }
+  activate("Chat");
+})();
+</script>
+</body>
+</html>

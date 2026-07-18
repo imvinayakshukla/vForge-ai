@@ -1,0 +1,38 @@
+app:
+  name: assistant-demo
+  description: Example VForge application with two collaborating agents.
+
+llm:
+  provider: anthropic
+  model: claude-opus-4-8
+  api_key: ${ANTHROPIC_API_KEY}
+  max_tokens: 16000
+
+agents:
+  - name: assistant
+    description: General-purpose assistant; delegates research to the researcher.
+    prompt: prompts/assistant.md
+    skills:
+      - house-style
+
+  - name: researcher
+    description: Focused research agent that produces structured findings.
+    prompt: prompts/researcher.md
+
+# Uncomment to give agents filesystem tools via MCP:
+# mcp:
+#   servers:
+#     - name: fs
+#       transport: stdio
+#       command: npx
+#       args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+#
+# Then add under an agent:
+#     mcp_servers: [fs]
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+observability:
+  log_level: INFO
